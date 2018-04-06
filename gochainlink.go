@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"html/template"
 	"log"
+	"flag"
 )
 
 const difficulty = 2
