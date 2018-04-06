@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <title>INDEX</title>
+</head>
+<body>
+<h1>Blockchain</h1>
+<ul>
+{{range .}}
+<li>Index: {{.Index}}</li>
+<li>WkLog: {{.WkLog}}</li>
+<li>BlockHash: {{.BlockHash}}</li>
+<li>PrevHash: {{.PrevHash}}</li>
+<li>Difficulty: {{.Difficulty}}</li>
+<li>Nonce: {{.Nonce}}</li>
+<br>
+{{end}}
+</ul>
+</body>
+</html>

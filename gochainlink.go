@@ -8,9 +8,17 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"math/big"
+	"html/template"
+	"log"
 )
 
 const difficulty = 2
+
+var tpl *template.Template
+
+func init() {
+	tpl = template.Must(template.ParseGlob("templates/*.gohtml"))
+}
 
 type WorkLog struct {
 	TimeSpent int // in mins
@@ -27,6 +35,14 @@ func (w *WorkLog) String() (s string) {
 	s = fmt.Sprint(w.TimeSpent)
 	return s
 }
+var Blockchain []Block
+
+func blkChString() (s string) {
+	for _, b := range Blockchain {
+		s += b.String()
+	}
+	return s
+}
 
 type Block struct {
 	Index      int
@@ -37,7 +53,7 @@ type Block struct {
 	Nonce      []byte
 }
 
-var Blockchain []Block
+
 
 func (b *Block) HashValid() (v bool) {
 	return false
@@ -82,12 +98,8 @@ func (b *Block) String() (s string) {
 	return s
 }
 
-func addBlockHandler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path[1:] == "favicon.ico" {return}
-
+func addBlock(s string) {
 	var newBlock Block
-	fmt.Print(r.URL.Path[1:], "\n")
-
 	if len(Blockchain) == 0 {
 		newBlock.Index = 0
 		newBlock.PrevHash = make([]byte, 32)
@@ -97,8 +109,27 @@ func addBlockHandler(w http.ResponseWriter, r *http.Request) {
 		newBlock.PrevHash = Blockchain[len(Blockchain)-1].BlockHash
 		newBlock.Difficulty = Blockchain[len(Blockchain)-1].Difficulty + difficulty
 	}
-	newBlock.WkLog.TimeSpent, _ = strconv.Atoi(r.URL.Path[1:])
+	newBlock.WkLog.TimeSpent, _ = strconv.Atoi(s)
 	newBlock.GenerateHash()
+}
+
+func addBlockHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	s := r.FormValue("wklog")
+	addBlock(s)
+	d := struct{
+		Wklog string
+	}{
+		Wklog: s,
+	}
+	//fmt.Print("Template parsing.\n")
+	err := tpl.ExecuteTemplate(w, "newblock.gohtml", d)
+	if err != nil {
+		log.Panic("Template Error: ", err)
+	}
 }
 
 func blockchainHandler(w http.ResponseWriter, r *http.Request) {
@@ -107,8 +138,42 @@ func blockchainHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type BlkData struct {
+	Index      string
+	WkLog      string
+	BlockHash  string
+	PrevHash   string
+	Difficulty string
+	Nonce      string
+}
+
+func index(w http.ResponseWriter, r *http.Request) {
+	err := tpl.ExecuteTemplate(w, "index.gohtml", nil)
+	if err != nil {
+		log.Panic("Template Error: ", err)
+	}
+}
+
+func chaindata(w http.ResponseWriter, r *http.Request) {
+	var d []BlkData
+	for _, b := range Blockchain {
+		d = append(d, BlkData{strconv.Itoa(b.Index),
+			b.WkLog.String(),
+			fmt.Sprintf("% x", b.BlockHash),
+			fmt.Sprintf("% x", b.PrevHash),
+			strconv.Itoa(b.Difficulty),
+			fmt.Sprintf("% x", b.Nonce),
+		})
+	}
+	err := tpl.ExecuteTemplate(w, "chaindata.gohtml", d)
+	if err != nil {
+		log.Panic("Template Error: ", err)
+	}
+}
+
 func main() {
-	http.HandleFunc("/", addBlockHandler)
-	http.HandleFunc("/blockchain", blockchainHandler)
+	http.HandleFunc("/", index)
+	http.HandleFunc("/addblock", addBlockHandler)
+	http.HandleFunc("/chaindata", chaindata)
 	http.ListenAndServe(":8080", nil)
 }
